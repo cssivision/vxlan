@@ -1,6 +1,0 @@
-[package]
-name = "flannel"
-version = "0.1.0"
-authors = ["cssivision <cssivision@gmail.com>"]
-
-[dependencies]

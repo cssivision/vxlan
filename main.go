@@ -3,19 +3,26 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
 const (
 	defaultVNI            = 1
 	iptablesResyncSeconds = 5
 	vxlanNetwork          = "10.5.0.0/16"
+	subNetworkTpl         = "10.5.%v.0/24"
 )
 
 func main() {
@@ -41,6 +48,10 @@ func main() {
 		panic(fmt.Sprintf("newVXLANDevice err: %v", err))
 	}
 	dev.directRouting = false
+
+	if err := dev.configure(fmt.Sprintf(subNetworkTpl, rand.Int())); err != nil {
+		panic(fmt.Errorf("failed to configure interface %s: %s", dev.link.Attrs().Name, err))
+	}
 
 	go setupAndEnsureIPTables(forwardRules(vxlanNetwork), iptablesResyncSeconds)
 	logrus.Info("Running backend.")

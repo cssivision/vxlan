@@ -20,7 +20,7 @@ type externalInterface struct {
 	ExtAddr   net.IP
 }
 
-func LookupExtIface() (*externalInterface, error) {
+func lookupExtIface() (*externalInterface, error) {
 	var iface *net.Interface
 	var ifaceAddr net.IP
 	var err error

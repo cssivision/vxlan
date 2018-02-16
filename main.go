@@ -22,7 +22,7 @@ const (
 	defaultVNI            = 1
 	iptablesResyncSeconds = 5
 	vxlanNetwork          = "10.5.0.0/16"
-	subNetworkTpl         = "10.5.%v.0/24"
+	subNetworkTpl         = "10.5.%v.1/24"
 )
 
 func main() {

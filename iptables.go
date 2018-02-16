@@ -21,6 +21,14 @@ type IPTablesRule struct {
 	rulespec []string
 }
 
+func forwardRules(network string) []IPTablesRule {
+	return []IPTablesRule{
+		// These rules allow traffic to be forwarded if it is to or from the flannel network range.
+		{"filter", "FORWARD", []string{"-s", network, "-j", "ACCEPT"}},
+		{"filter", "FORWARD", []string{"-d", network, "-j", "ACCEPT"}},
+	}
+}
+
 func ipTablesRulesExist(ipt IPTables, rules []IPTablesRule) (bool, error) {
 	for _, rule := range rules {
 		exists, err := ipt.Exists(rule.table, rule.chain, rule.rulespec...)
@@ -36,7 +44,7 @@ func ipTablesRulesExist(ipt IPTables, rules []IPTablesRule) (bool, error) {
 	return true, nil
 }
 
-func SetupAndEnsureIPTables(rules []IPTablesRule, resyncPeriod int) {
+func setupAndEnsureIPTables(rules []IPTablesRule, resyncPeriod int) {
 	ipt, err := iptables.New()
 	if err != nil {
 		// if we can't find iptables, give up and return

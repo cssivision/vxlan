@@ -4,14 +4,48 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
+const (
+	defaultVNI            = 1
+	iptablesResyncSeconds = 5
+	vxlanNetwork          = "10.5.0.0/16"
+)
+
 func main() {
-	fmt.Println("not implement")
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+
+	extIface, err := lookupExtIface()
+	if err != nil {
+		panic(fmt.Sprintf("lookupExtIface err: %v", err))
+	}
+
+	devAttrs := vxlanDeviceAttrs{
+		vni:       defaultVNI,
+		name:      fmt.Sprintf("vxlan.%v", defaultVNI),
+		vtepIndex: extIface.Iface.Index,
+		vtepAddr:  extIface.IfaceAddr,
+		vtepPort:  0,
+		gbp:       false,
+	}
+
+	dev, err := newVxlanDevice(&devAttrs)
+	if err != nil {
+		panic(fmt.Sprintf("newVXLANDevice err: %v", err))
+	}
+	dev.directRouting = false
+
+	go setupAndEnsureIPTables(forwardRules(vxlanNetwork), iptablesResyncSeconds)
+	logrus.Info("Running backend.")
+	<-sigs
+	logrus.Info("shutdownHandler sent cancel signal...")
 }
 
 type externalInterface struct {

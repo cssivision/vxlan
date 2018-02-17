@@ -49,7 +49,7 @@ func main() {
 	}
 	dev.directRouting = false
 
-	if err := dev.configure(fmt.Sprintf(subNetworkTpl, rand.Int())); err != nil {
+	if err := dev.configure(fmt.Sprintf(subNetworkTpl, 50+rand.Intn(200))); err != nil {
 		panic(fmt.Errorf("failed to configure interface %s: %s", dev.link.Attrs().Name, err))
 	}
 

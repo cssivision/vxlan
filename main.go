@@ -21,6 +21,7 @@ func init() {
 const (
 	defaultVNI            = 1
 	iptablesResyncSeconds = 5
+	encapOverhead         = 50
 	vxlanNetwork          = "10.5.0.0/16"
 	subNetworkTpl         = "10.5.%v.1/24"
 )
@@ -54,6 +55,7 @@ func main() {
 	}
 
 	go setupAndEnsureIPTables(forwardRules(vxlanNetwork), iptablesResyncSeconds)
+	logrus.Infof("MTU: %v\n", extIface.Iface.MTU-encapOverhead)
 	logrus.Info("Running backend.")
 	<-sigs
 	logrus.Info("shutdownHandler sent cancel signal...")

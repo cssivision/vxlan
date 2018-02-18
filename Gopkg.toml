@@ -27,3 +27,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/vishvananda/netlink"
+
+[[constraint]]
+  name = "github.com/coreos/etcd"
+  version = "3.3.1"

@@ -140,6 +140,56 @@ func (dev *vxlanDevice) configure(ipn string) error {
 	return nil
 }
 
+type neighbor struct {
+	MAC net.HardwareAddr
+	IP  net.IP
+}
+
+func (dev *vxlanDevice) AddFDB(n neighbor) error {
+	logrus.Infof("calling AddFDB: %v, %v", n.IP, n.MAC)
+	return netlink.NeighSet(&netlink.Neigh{
+		LinkIndex:    dev.link.Index,
+		State:        netlink.NUD_PERMANENT,
+		Family:       syscall.AF_BRIDGE,
+		Flags:        netlink.NTF_SELF,
+		IP:           n.IP,
+		HardwareAddr: n.MAC,
+	})
+}
+
+func (dev *vxlanDevice) DelFDB(n neighbor) error {
+	logrus.Infof("calling DelFDB: %v, %v", n.IP, n.MAC)
+	return netlink.NeighDel(&netlink.Neigh{
+		LinkIndex:    dev.link.Index,
+		Family:       syscall.AF_BRIDGE,
+		Flags:        netlink.NTF_SELF,
+		IP:           n.IP,
+		HardwareAddr: n.MAC,
+	})
+}
+
+func (dev *vxlanDevice) AddARP(n neighbor) error {
+	logrus.Infof("calling AddARP: %v, %v", n.IP, n.MAC)
+	return netlink.NeighSet(&netlink.Neigh{
+		LinkIndex:    dev.link.Index,
+		State:        netlink.NUD_PERMANENT,
+		Type:         syscall.RTN_UNICAST,
+		IP:           n.IP,
+		HardwareAddr: n.MAC,
+	})
+}
+
+func (dev *vxlanDevice) DelARP(n neighbor) error {
+	logrus.Infof("calling DelARP: %v, %v", n.IP, n.MAC)
+	return netlink.NeighDel(&netlink.Neigh{
+		LinkIndex:    dev.link.Index,
+		State:        netlink.NUD_PERMANENT,
+		Type:         syscall.RTN_UNICAST,
+		IP:           n.IP,
+		HardwareAddr: n.MAC,
+	})
+}
+
 // ensureV4AddressOnLink ensures that there is only one v4 Addr on `link` and it equals `ipn`.
 // If there exist multiple addresses on link, it returns an error message to tell callers to remove additional address.
 func ensureV4AddressOnLink(ipn string, link netlink.Link) error {

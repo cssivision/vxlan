@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -23,7 +24,7 @@ const (
 	iptablesResyncSeconds = 5
 	encapOverhead         = 50
 	vxlanNetwork          = "10.5.0.0/16"
-	subNetworkTpl         = "10.5.%v.1/32"
+	subNetworkTpl         = "10.5.%v.1"
 )
 
 func main() {
@@ -50,7 +51,33 @@ func main() {
 	}
 	dev.directRouting = false
 
-	if err := dev.configure(fmt.Sprintf(subNetworkTpl, 50+rand.Intn(200))); err != nil {
+	publicIP := FromIP(extIface.ExtAddr)
+	snIP := FromIP(net.ParseIP(subNetworkTpl))
+	sn := IP4Net{
+		IP:        snIP,
+		PrefixLen: 24,
+	}
+	attrs := Attrs{
+		PublicIP:     publicIP,
+		Subnet:       sn,
+		HardwareAddr: dev.link.HardwareAddr,
+	}
+
+	ctx := context.Background()
+
+	sm := newManager()
+	if err := sm.createSubnet(ctx, sn, attrs); err != nil {
+		panic(fmt.Errorf("create subnet fail: %v", err))
+	}
+
+	sns, err := sm.getSubnets(ctx)
+	if err != nil {
+		panic(fmt.Errorf("get subnets fail: %v", err))
+	}
+
+	go handleSubnets(ctx, sns, dev)
+
+	if err := dev.configure(fmt.Sprintf("%v/30", snIP)); err != nil {
 		panic(fmt.Errorf("failed to configure interface %s: %s", dev.link.Attrs().Name, err))
 	}
 

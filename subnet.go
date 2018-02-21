@@ -82,6 +82,28 @@ func newManager() manager {
 	}
 }
 
+type Event struct {
+	Type   string
+	Subnet IP4Net
+	Attrs  Attrs
+}
+
+func (m *manager) watchSubnets(ctx context.Context, since uint64) (Event, uint64, error) {
+	key := path.Join(m.Prefix, "subnets")
+	opts := &client.WatcherOptions{
+		AfterIndex: since,
+		Recursive:  true,
+	}
+
+	e, err := m.cli.Watcher(key, opts).Next(ctx)
+	if err != nil {
+		return Event{}, 0, err
+	}
+
+	evt, err := parseSubnetWatchResponse(e)
+	return evt, e.Node.ModifiedIndex, err
+}
+
 func (m *manager) getSubnets(ctx context.Context) ([]*Attrs, error) {
 	key := path.Join(m.Prefix, "subnets")
 	resp, err := m.cli.Get(ctx, key, &client.GetOptions{Recursive: true, Quorum: true})
@@ -134,6 +156,31 @@ func nodeToLease(node *client.Node) (*Attrs, error) {
 	return attrs, nil
 }
 
+func parseSubnetWatchResponse(resp *client.Response) (Event, error) {
+	sn := ParseSubnetKey(resp.Node.Key)
+	if sn == nil {
+		return Event{}, fmt.Errorf("%v %q: not a subnet, skipping", resp.Action, resp.Node.Key)
+	}
+
+	switch resp.Action {
+	case "delete", "expire":
+		return Event{}, fmt.Errorf("%v %q: not support, skipping", resp.Action, resp.Node.Key)
+
+	default:
+		attrs := &Attrs{}
+		err := json.Unmarshal([]byte(resp.Node.Value), attrs)
+		if err != nil {
+			return Event{}, err
+		}
+
+		evt := Event{
+			Subnet: *sn,
+			Attrs:  *attrs,
+		}
+		return evt, nil
+	}
+}
+
 func (m *manager) createSubnet(ctx context.Context, sn IP4Net, attrs Attrs) error {
 	key := path.Join(m.Prefix, "subnets", MakeSubnetKey(sn))
 	value, err := json.Marshal(attrs)
@@ -157,6 +204,9 @@ func (m *manager) createSubnet(ctx context.Context, sn IP4Net, attrs Attrs) erro
 	return nil
 }
 
-func handleSubnets(ctx context.Context, snAttrs []*Attrs, dev *vxlanDevice) {
-
+func handleSubnets(ctx context.Context, sn IP4Net, sm *manager, dev *vxlanDevice) {
+	_, err := sm.getSubnets(ctx)
+	if err != nil {
+		panic(fmt.Errorf("get subnets fail: %v", err))
+	}
 }

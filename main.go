@@ -70,12 +70,7 @@ func main() {
 		panic(fmt.Errorf("create subnet fail: %v", err))
 	}
 
-	sns, err := sm.getSubnets(ctx)
-	if err != nil {
-		panic(fmt.Errorf("get subnets fail: %v", err))
-	}
-
-	go handleSubnets(ctx, sns, dev)
+	go handleSubnets(ctx, sn, &sm, dev)
 
 	if err := dev.configure(fmt.Sprintf("%v/30", snIP)); err != nil {
 		panic(fmt.Errorf("failed to configure interface %s: %s", dev.link.Attrs().Name, err))

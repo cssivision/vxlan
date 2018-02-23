@@ -272,7 +272,7 @@ func (m *manager) createSubnet(ctx context.Context, sn IP4Net, attrs Attrs) erro
 	}
 
 	if resp.Node.Expiration != nil {
-		logrus.Infof("key expired in: %v", resp.Node.Expiration)
+		logrus.Infof("subnet key expired in: %v", resp.Node.Expiration)
 	}
 	return nil
 }

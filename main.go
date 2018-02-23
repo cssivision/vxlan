@@ -81,7 +81,7 @@ func main() {
 
 	go handleSubnets(ctx, sn, &sm, dev)
 
-	if err := dev.configure(fmt.Sprintf("%v/30", snIP)); err != nil {
+	if err := dev.configure(fmt.Sprintf("%v/30", snIP.ToIP())); err != nil {
 		panic(fmt.Errorf("failed to configure interface %s: %s", dev.link.Attrs().Name, err))
 	}
 

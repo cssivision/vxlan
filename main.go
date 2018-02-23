@@ -88,8 +88,8 @@ func main() {
 	}
 
 	go setupAndEnsureIPTables(forwardRules(vxlanNetwork), iptablesResyncSeconds)
-	logrus.Infof("MTU: %v\n", extIface.Iface.MTU-encapOverhead)
-	logrus.Infof("VXLan HardwareAddr: %v\n", dev.link.HardwareAddr)
+	logrus.Infof("MTU: %v", extIface.Iface.MTU-encapOverhead)
+	logrus.Infof("VXLan HardwareAddr: %v", dev.link.HardwareAddr)
 	logrus.Info("Running backend.")
 	<-sigs
 	logrus.Info("shutdownHandler sent cancel signal...")

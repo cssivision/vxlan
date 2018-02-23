@@ -155,7 +155,7 @@ func (dev *vxlanDevice) handleSubnetEvents(batch []Event) {
 		vxlanRoute.SetFlag(syscall.RTNH_F_ONLINK)
 
 		if event.Type == eventAdd {
-			logrus.Infof("adding subnet: %s PublicIP: %s VtepMAC: %s", sn, attrs.PublicIP, net.HardwareAddr(attrs.HardwareAddr))
+			logrus.Infof("adding subnet: %s PublicIP: %s VtepMAC: %s", sn.StringSep(".", "/"), attrs.PublicIP.ToIP(), net.HardwareAddr(attrs.HardwareAddr))
 			if err := dev.AddARP(neighbor{IP: sn.IP.ToIP(), MAC: net.HardwareAddr(attrs.HardwareAddr)}); err != nil {
 				logrus.Error("AddARP failed: ", err)
 				continue

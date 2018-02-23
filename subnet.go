@@ -271,9 +271,6 @@ func (m *manager) createSubnet(ctx context.Context, sn IP4Net, attrs Attrs) erro
 		return err
 	}
 
-	if resp.Node.Expiration != nil {
-		return fmt.Errorf("key expired")
-	}
 	return nil
 }
 

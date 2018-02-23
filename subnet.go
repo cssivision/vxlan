@@ -16,15 +16,10 @@ import (
 
 var (
 	subnetRegex = regexp.MustCompile(`(\d+\.\d+.\d+.\d+)-(\d+)`)
+	eventAdd    = "add"
 )
 
 type IP4 uint
-
-// similar to net.IPNet but has uint based representation
-type IP4Net struct {
-	IP        IP4
-	PrefixLen uint
-}
 
 func (ip IP4) Octets() (a, b, c, d byte) {
 	a, b, c, d = byte(ip>>24), byte(ip>>16), byte(ip>>8), byte(ip)
@@ -49,6 +44,19 @@ func FromBytes(ip []byte) IP4 {
 
 func FromIP(ip net.IP) IP4 {
 	return FromBytes(ip.To4())
+}
+
+// similar to net.IPNet but has uint based representation
+type IP4Net struct {
+	IP        IP4
+	PrefixLen uint
+}
+
+func (n IP4Net) ToIPNet() *net.IPNet {
+	return &net.IPNet{
+		IP:   n.IP.ToIP(),
+		Mask: net.CIDRMask(int(n.PrefixLen), 32),
+	}
 }
 
 func (n IP4Net) StringSep(octetSep, prefixSep string) string {
@@ -88,10 +96,69 @@ type Event struct {
 	Attrs  Attrs
 }
 
-func (m *manager) watchSubnets(ctx context.Context, since uint64) (Event, uint64, error) {
+type subnetWatcher struct {
+	Subnet *IP4Net
+}
+
+func (sw *subnetWatcher) update(evts []Event) []Event {
+	batch := []Event{}
+
+	for _, e := range evts {
+		if sw.Subnet != nil && e.Subnet.IP == sw.Subnet.IP && e.Subnet.PrefixLen == sw.Subnet.PrefixLen {
+			continue
+		}
+
+		batch = append(batch, e)
+	}
+
+	return batch
+}
+
+func watchSubnets(ctx context.Context, sm *manager, ownSn *IP4Net, receiver chan []Event) {
+	var index *uint64
+
+	sw := subnetWatcher{
+		Subnet: ownSn,
+	}
+
+	for {
+		var evts []Event
+		var err error
+		evts, index, err = sm.watchEvents(ctx, index)
+		if err != nil {
+			logrus.Errorf("Watch subnets: %v", err)
+			time.Sleep(time.Second)
+			continue
+		}
+
+		var batch []Event
+		if len(evts) > 0 {
+			batch = sw.update(evts)
+		}
+
+		if len(batch) > 0 {
+			receiver <- batch
+		}
+	}
+}
+
+func (m *manager) watchEvents(ctx context.Context, index *uint64) ([]Event, *uint64, error) {
+	if index == nil {
+		return m.getSubnets(ctx)
+	}
+
+	evt, idx, err := m.watchSubnets(ctx, index)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return []Event{evt}, &idx, nil
+}
+
+func (m *manager) watchSubnets(ctx context.Context, since *uint64) (Event, uint64, error) {
 	key := path.Join(m.Prefix, "subnets")
 	opts := &client.WatcherOptions{
-		AfterIndex: since,
+		AfterIndex: *since,
 		Recursive:  true,
 	}
 
@@ -104,30 +171,29 @@ func (m *manager) watchSubnets(ctx context.Context, since uint64) (Event, uint64
 	return evt, e.Node.ModifiedIndex, err
 }
 
-func (m *manager) getSubnets(ctx context.Context) ([]*Attrs, error) {
+func (m *manager) getSubnets(ctx context.Context) ([]Event, *uint64, error) {
 	key := path.Join(m.Prefix, "subnets")
 	resp, err := m.cli.Get(ctx, key, &client.GetOptions{Recursive: true, Quorum: true})
 	if err != nil {
 		if etcdErr, ok := err.(client.Error); ok && etcdErr.Code == client.ErrorCodeKeyNotFound {
-			// key not found: treat it as empty set
-			return []*Attrs{}, nil
+			return []Event{}, nil, nil
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
-	snAttrs := []*Attrs{}
+	evts := []Event{}
 
 	for _, node := range resp.Node.Nodes {
-		l, err := nodeToLease(node)
+		l, err := nodeToEvent(node)
 		if err != nil {
 			logrus.Warningf("Ignoring bad subnet node: %v", err)
 			continue
 		}
 
-		snAttrs = append(snAttrs, l)
+		evts = append(evts, *l)
 	}
 
-	return snAttrs, nil
+	return evts, &resp.Index, nil
 }
 
 func ParseSubnetKey(s string) *IP4Net {
@@ -142,7 +208,7 @@ func ParseSubnetKey(s string) *IP4Net {
 	return nil
 }
 
-func nodeToLease(node *client.Node) (*Attrs, error) {
+func nodeToEvent(node *client.Node) (*Event, error) {
 	sn := ParseSubnetKey(node.Key)
 	if sn == nil {
 		return nil, fmt.Errorf("failed to parse subnet key %s", node.Key)
@@ -153,7 +219,13 @@ func nodeToLease(node *client.Node) (*Attrs, error) {
 		return nil, err
 	}
 
-	return attrs, nil
+	evt := Event{
+		Type:   eventAdd,
+		Attrs:  *attrs,
+		Subnet: attrs.Subnet,
+	}
+
+	return &evt, nil
 }
 
 func parseSubnetWatchResponse(resp *client.Response) (Event, error) {
@@ -174,6 +246,7 @@ func parseSubnetWatchResponse(resp *client.Response) (Event, error) {
 		}
 
 		evt := Event{
+			Type:   eventAdd,
 			Subnet: *sn,
 			Attrs:  *attrs,
 		}
@@ -205,8 +278,13 @@ func (m *manager) createSubnet(ctx context.Context, sn IP4Net, attrs Attrs) erro
 }
 
 func handleSubnets(ctx context.Context, sn IP4Net, sm *manager, dev *vxlanDevice) {
-	_, err := sm.getSubnets(ctx)
-	if err != nil {
-		panic(fmt.Errorf("get subnets fail: %v", err))
+	evts := make(chan []Event)
+	go func() {
+		watchSubnets(ctx, sm, &sn, evts)
+		logrus.Info("watch subnets exit")
+	}()
+
+	for evtBatch := range evts {
+		dev.handleSubnetEvents(evtBatch)
 	}
 }

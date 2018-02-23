@@ -140,6 +140,58 @@ func (dev *vxlanDevice) configure(ipn string) error {
 	return nil
 }
 
+func (dev *vxlanDevice) handleSubnetEvents(batch []Event) {
+	for _, event := range batch {
+		sn := event.Subnet
+		attrs := event.Attrs
+
+		// This route is used when traffic should be vxlan encapsulated
+		vxlanRoute := netlink.Route{
+			LinkIndex: dev.link.Attrs().Index,
+			Scope:     netlink.SCOPE_UNIVERSE,
+			Dst:       sn.ToIPNet(),
+			Gw:        sn.IP.ToIP(),
+		}
+		vxlanRoute.SetFlag(syscall.RTNH_F_ONLINK)
+
+		if event.Type == eventAdd {
+			logrus.Infof("adding subnet: %s PublicIP: %s VtepMAC: %s", sn, attrs.PublicIP, net.HardwareAddr(attrs.HardwareAddr))
+			if err := dev.AddARP(neighbor{IP: sn.IP.ToIP(), MAC: net.HardwareAddr(attrs.HardwareAddr)}); err != nil {
+				logrus.Error("AddARP failed: ", err)
+				continue
+			}
+
+			if err := dev.AddFDB(neighbor{IP: attrs.PublicIP.ToIP(), MAC: net.HardwareAddr(attrs.HardwareAddr)}); err != nil {
+				logrus.Error("AddFDB failed: ", err)
+
+				// Try to clean up the ARP entry then continue
+				if err := dev.DelARP(neighbor{IP: sn.IP.ToIP(), MAC: net.HardwareAddr(attrs.HardwareAddr)}); err != nil {
+					logrus.Error("DelARP failed: ", err)
+				}
+
+				continue
+			}
+
+			// Set the route - the kernel would ARP for the Gw IP address if it hadn't already been set above so make sure
+			// this is done last.
+			if err := netlink.RouteReplace(&vxlanRoute); err != nil {
+				logrus.Errorf("failed to add vxlanRoute (%s -> %s): %v", vxlanRoute.Dst, vxlanRoute.Gw, err)
+
+				// Try to clean up both the ARP and FDB entries then continue
+				if err := dev.DelARP(neighbor{IP: sn.IP.ToIP(), MAC: net.HardwareAddr(attrs.HardwareAddr)}); err != nil {
+					logrus.Error("DelARP failed: ", err)
+				}
+
+				if err := dev.DelFDB(neighbor{IP: attrs.PublicIP.ToIP(), MAC: net.HardwareAddr(attrs.HardwareAddr)}); err != nil {
+					logrus.Error("DelFDB failed: ", err)
+				}
+
+				continue
+			}
+		}
+	}
+}
+
 type neighbor struct {
 	MAC net.HardwareAddr
 	IP  net.IP

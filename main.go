@@ -79,6 +79,8 @@ func main() {
 		panic(fmt.Errorf("create subnet fail: %v", err))
 	}
 
+	logrus.Infof("create subnet: %v, net mask: %v", sn.IP.ToIP(), sn.PrefixLen)
+
 	go handleSubnets(ctx, sn, &sm, dev)
 
 	if err := dev.configure(fmt.Sprintf("%v/30", snIP.ToIP())); err != nil {
@@ -87,7 +89,7 @@ func main() {
 
 	go setupAndEnsureIPTables(forwardRules(vxlanNetwork), iptablesResyncSeconds)
 	logrus.Infof("MTU: %v\n", extIface.Iface.MTU-encapOverhead)
-	logrus.Infof("VXLan HardwareAddr: %v\n", string(dev.link.HardwareAddr))
+	logrus.Infof("VXLan HardwareAddr: %v\n", dev.link.HardwareAddr)
 	logrus.Info("Running backend.")
 	<-sigs
 	logrus.Info("shutdownHandler sent cancel signal...")

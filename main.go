@@ -25,7 +25,7 @@ const (
 	iptablesResyncSeconds = 5
 	encapOverhead         = 50
 	vxlanNetwork          = "10.5.0.0/16"
-	subNetworkTpl         = "10.5.%v.1"
+	subNetworkTpl         = "10.5.%v.0"
 )
 
 type config struct {

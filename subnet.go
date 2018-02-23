@@ -78,8 +78,8 @@ type manager struct {
 	Prefix string
 }
 
-func newManager() manager {
-	etcdCli, err := newEtcdClient()
+func newManager(cfg config) manager {
+	etcdCli, err := newEtcdClient(cfg)
 	if err != nil {
 		panic(fmt.Sprintf("new etcd client err: %v", err))
 	}

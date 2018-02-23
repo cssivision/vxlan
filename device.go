@@ -188,6 +188,8 @@ func (dev *vxlanDevice) handleSubnetEvents(batch []Event) {
 
 				continue
 			}
+		} else {
+			logrus.Infof("invalid event type: %v\n", event.Type)
 		}
 	}
 }

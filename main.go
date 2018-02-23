@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"math/rand"
 	"net"
@@ -27,7 +28,15 @@ const (
 	subNetworkTpl         = "10.5.%v.1"
 )
 
+type config struct {
+	etcdEndpoint string
+}
+
 func main() {
+	cfg := config{}
+	flag.StringVar(&cfg.etcdEndpoint, "etcdEndpoint", "http://127.0.0.1:2379", "etcd endpoint")
+	flag.Parse()
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 
@@ -52,7 +61,7 @@ func main() {
 	dev.directRouting = false
 
 	publicIP := FromIP(extIface.ExtAddr)
-	snIP := FromIP(net.ParseIP(subNetworkTpl))
+	snIP := FromIP(net.ParseIP(fmt.Sprintf(subNetworkTpl, rand.Intn(254))))
 	sn := IP4Net{
 		IP:        snIP,
 		PrefixLen: 24,
@@ -65,7 +74,7 @@ func main() {
 
 	ctx := context.Background()
 
-	sm := newManager()
+	sm := newManager(cfg)
 	if err := sm.createSubnet(ctx, sn, attrs); err != nil {
 		panic(fmt.Errorf("create subnet fail: %v", err))
 	}

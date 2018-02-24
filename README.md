@@ -60,6 +60,19 @@ INFO[0000] calling AddARP: 10.5.10.0, f6:ad:73:33:de:0b
 INFO[0000] calling AddFDB: 10.140.0.3, f6:ad:73:33:de:0b
 ``` 
 
+## Use with docker
+Docker daemon accepts --bip argument to configure the subnet of the docker0 bridge. It also accepts --mtu to set the MTU for docker0 and veth devices that it will be creating.
+
+use `subnet` and `MTU` in log
+```
+INFO[0000] create subnet: 10.10.238.0, net mask: 24
+INFO[0000] MTU: 1410
+```
+instead of `10.10.238.0/24` use `10.10.238.1/24` as the ip of the docker0 bridge.
+```sh
+dockerd --bip=${10.10.238.1/24} --mtu=1410 &
+```
+
 ## Reference
 - Flannel https://github.com/coreos/flannel
 - VXLan attributes, Please consult the man page for `ip link` and see the vxlan section for more details.

@@ -36,7 +36,7 @@ use `etcd` as the key-value store to exchange information when remote host statu
 
 ## Usage 
 
-get the lastest [release](https://github.com/cssivision/vxlan/releases).
+get the lastest release [binary](https://github.com/cssivision/vxlan/releases).
 
 Run
 ```sh

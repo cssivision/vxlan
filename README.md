@@ -77,6 +77,7 @@ dockerd --bip=${10.10.238.1/24} --mtu=1410 &
 - Flannel https://github.com/coreos/flannel
 - VXLan attributes, Please consult the man page for `ip link` and see the vxlan section for more details.
 - How VXLan work? https://www.slideshare.net/enakai/how-vxlan-works-on-linux
+- how-vxlan-works-on-l2-and-across-l3-networks https://www.slideshare.net/anandnande/how-vxlan-works-on-l2-and-across-l3-networks
 - IP route fundamental
     - https://www.thegeekstuff.com/2012/04/ip-routing-intro/
     - https://www.thegeekstuff.com/2012/04/route-examples/

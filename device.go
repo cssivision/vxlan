@@ -257,7 +257,7 @@ func ensureV4AddressOnLink(ipn string, link netlink.Link) error {
 		return err
 	}
 
-	// flannel will never make this happen. This situation can only be caused by a user, so get them to sort it out.
+	// this will never happen. This situation can only be caused by a user, so get them to sort it out.
 	if len(existingAddrs) > 1 {
 		return fmt.Errorf("link has incompatible addresses. Remove additional addresses and try again. %#v", link)
 	}

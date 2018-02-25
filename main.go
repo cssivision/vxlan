@@ -61,7 +61,7 @@ func main() {
 	dev.directRouting = false
 
 	publicIP := FromIP(extIface.ExtAddr)
-	snIP := FromIP(net.ParseIP(fmt.Sprintf(subNetworkTpl, rand.Intn(254))))
+	snIP := FromIP(net.ParseIP(fmt.Sprintf(subNetworkTpl, 1+rand.Intn(254))))
 	sn := IP4Net{
 		IP:        snIP,
 		PrefixLen: 24,

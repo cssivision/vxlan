@@ -23,7 +23,7 @@ type IPTablesRule struct {
 
 func forwardRules(network string) []IPTablesRule {
 	return []IPTablesRule{
-		// These rules allow traffic to be forwarded if it is to or from the flannel network range.
+		// These rules allow traffic to be forwarded if it is to or from the network range.
 		{"filter", "FORWARD", []string{"-s", network, "-j", "ACCEPT"}},
 		{"filter", "FORWARD", []string{"-d", network, "-j", "ACCEPT"}},
 	}
